@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Web Serial Terminal</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Web Serial Terminal</h1>
+        <div class="controls">
+            <button id="connectButton">接続</button>
+            <button id="disconnectButton" disabled>切断</button>
+            <button id="saveLogButton">ログを保存</button>
+            <button id="clearLogButton">ログをクリア</button>
+            <div class="select-wrapper">
+                <label for="baudRate">ボーレート:</label>
+                <select id="baudRate">
+                    <option value="9600">9600</option>
+                    <option value="19200">19200</option>
+                    <option value="38400">38400</option>
+                    <option value="57600">57600</option>
+                    <option value="115200" selected>115200</option>
+                </select>
+            </div>
+            <span id="status">ステータス: 切断</span>
+        </div>
+        <pre id="terminal"></pre>
+        <div class="input-area">
+            <input type="text" id="inputField" placeholder="送信するテキストを入力...">
+            <button id="sendButton">送信</button>
+        </div>
+    </div>
+    <script src="script.js"></script>
+</body>
+</html>
