@@ -114,6 +114,28 @@ body {
   flex-grow: 1;
 }
 
+#language-switcher {
+  position: absolute;
+  top: 10px;
+  right: 15px;
+  font-size: 0.9em;
+}
+
+#language-switcher .radio-group {
+  display: flex;
+  align-items: center;
+  gap: 5px; /* Gap between radio and label */
+}
+
+#language-switcher label {
+  cursor: pointer;
+  padding-right: 10px; /* Gap between language options */
+}
+
+#language-switcher input[type="radio"] {
+  margin: 0;
+}
+
 /* General Element Styling */
 button, select, input[type="text"] {
   padding: 8px 12px;

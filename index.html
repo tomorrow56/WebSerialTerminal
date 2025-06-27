@@ -3,26 +3,34 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Web Serial Terminal</title>
+  <title data-lang-key="mainTitle">Web Serial Terminal</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <div class="container">
+    <div id="language-switcher">
+      <div class="radio-group">
+        <input type="radio" id="lang-ja" name="language" value="ja" checked>
+        <label for="lang-ja">日本語</label>
+        <input type="radio" id="lang-en" name="language" value="en">
+        <label for="lang-en">English</label>
+      </div>
+    </div>
     <div class="header">
-      <h1>Web Serial Terminal</h1>
-      <span id="status">ステータス: 切断</span>
+      <h1 data-lang-key="mainTitle">Webシリアルターミナル</h1>
+      <span id="status"></span>
     </div>
 
     <div class="controls-area">
       <div class="control-group main-controls">
-        <button id="connectButton">接続</button>
-        <button id="disconnectButton" disabled>切断</button>
-        <button id="clearLogButton">ログをクリア</button>
-        <button id="saveLogButton">ログを保存</button>
+        <button id="connectButton" data-lang-key="connect">接続</button>
+        <button id="disconnectButton" data-lang-key="disconnect" disabled>切断</button>
+        <button id="clearLogButton" data-lang-key="clearLog">ログをクリア</button>
+        <button id="saveLogButton" data-lang-key="saveLog">ログを保存</button>
       </div>
       <div class="control-group settings">
         <div class="setting-item">
-          <label for="baudRate">ボーレート:</label>
+          <label for="baudRate" data-lang-key="baudRateLabel">ボーレート</label>
           <select id="baudRate">
             <option value="9600">9600</option>
             <option value="19200">19200</option>
@@ -32,21 +40,21 @@
           </select>
         </div>
         <div class="setting-item">
-          <label for="dataBits">データビット:</label>
+          <label for="dataBits" data-lang-key="dataBitsLabel">データビット</label>
           <select id="dataBits">
             <option value="8" selected>8</option>
             <option value="7">7</option>
           </select>
         </div>
         <div class="setting-item">
-          <label for="stopBits">ストップビット:</label>
+          <label for="stopBits" data-lang-key="stopBitsLabel">ストップビット</label>
           <select id="stopBits">
             <option value="1" selected>1</option>
             <option value="2">2</option>
           </select>
         </div>
         <div class="setting-item">
-          <label for="parity">パリティ:</label>
+          <label for="parity" data-lang-key="parityLabel">パリティ</label>
           <select id="parity">
             <option value="none" selected>None</option>
             <option value="even">Even</option>
@@ -57,14 +65,14 @@
       <div class="control-group advanced-settings">
         <div class="setting-item-row">
           <input type="checkbox" id="autoReconnectCheckbox" checked>
-          <label for="autoReconnectCheckbox">自動で再接続</label>
+          <label for="autoReconnectCheckbox" data-lang-key="autoReconnectLabel">自動で再接続</label>
           <input type="checkbox" id="showTimestampCheckbox" checked>
-          <label for="showTimestampCheckbox">タイムスタンプ表示</label>
+          <label for="showTimestampCheckbox" data-lang-key="showTimestampLabel">タイムスタンプ表示</label>
         </div>
       </div>
       <div class="control-group newline-settings">
         <div class="setting-item">
-          <label for="sendNewline">送信改行コード:</label>
+          <label for="sendNewline" data-lang-key="sendLabel">送信改行コード:</label>
           <select id="sendNewline">
             <option value="none">None</option>
             <option value="lf">LF (\n)</option>
@@ -73,7 +81,7 @@
           </select>
         </div>
         <div class="setting-item">
-          <label for="receiveNewline">受信改行コード:</label>
+          <label for="receiveNewline" data-lang-key="receiveLabel">受信改行コード:</label>
           <select id="receiveNewline">
             <option value="none">None</option>
             <option value="lf">LF (\n)</option>
@@ -84,12 +92,12 @@
       </div>
       <div class="control-group display-format-settings">
         <div class="setting-item">
-          <label>表示形式:</label>
+          <label data-lang-key="displayFormatLabel">表示形式:</label>
           <div class="radio-group">
             <input type="radio" id="formatAscii" name="displayFormat" value="ascii" checked>
-            <label for="formatAscii">ASCII</label>
+            <label for="formatAscii" data-lang-key="asciiLabel">ASCII</label>
             <input type="radio" id="formatHex" name="displayFormat" value="hex">
-            <label for="formatHex">HEX</label>
+            <label for="formatHex" data-lang-key="hexLabel">HEX</label>
           </div>
         </div>
       </div>
@@ -100,8 +108,8 @@
     </div>
 
     <div class="send-container">
-      <input type="text" id="sendInput" placeholder="送信するテキストを入力" disabled>
-      <button id="sendButton" disabled>送信</button>
+      <input type="text" id="sendInput" data-lang-key-placeholder="sendInputPlaceholder" placeholder="送信するテキストを入力..." disabled>
+      <button id="sendButton" data-lang-key="sendButtonLabel" disabled>送信</button>
     </div>
   </div>
   <script src="script.js"></script>
