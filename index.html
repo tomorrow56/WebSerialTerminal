@@ -58,6 +58,8 @@
         <div class="setting-item-row">
           <input type="checkbox" id="autoReconnectCheckbox" checked>
           <label for="autoReconnectCheckbox">自動で再接続</label>
+          <input type="checkbox" id="showTimestampCheckbox" checked>
+          <label for="showTimestampCheckbox">タイムスタンプ表示</label>
         </div>
       </div>
       <div class="control-group newline-settings">
@@ -78,6 +80,17 @@
             <option value="cr">CR (\r)</option>
             <option value="crlf" selected>CRLF (\r\n)</option>
           </select>
+        </div>
+      </div>
+      <div class="control-group display-format-settings">
+        <div class="setting-item">
+          <label>表示形式:</label>
+          <div class="radio-group">
+            <input type="radio" id="formatAscii" name="displayFormat" value="ascii" checked>
+            <label for="formatAscii">ASCII</label>
+            <input type="radio" id="formatHex" name="displayFormat" value="hex">
+            <label for="formatHex">HEX</label>
+          </div>
         </div>
       </div>
     </div>

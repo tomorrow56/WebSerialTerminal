@@ -17,6 +17,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const sendNewlineSelect = document.getElementById('sendNewline');
   const receiveNewlineSelect = document.getElementById('receiveNewline');
   const autoReconnectCheckbox = document.getElementById('autoReconnectCheckbox');
+  const formatAscii = document.getElementById('formatAscii');
+  const showTimestampCheckbox = document.getElementById('showTimestampCheckbox');
 
   // --- State Variables ---
   let port;
@@ -36,7 +38,8 @@ document.addEventListener('DOMContentLoaded', () => {
   clearLogButton.addEventListener('click', () => { log.innerHTML = ''; });
   saveLogButton.addEventListener('click', saveLog);
   sendInput.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' && !sendButton.disabled) {
+    // e.isComposingがtrueの場合はIME変換中なので、送信しない
+    if (e.key === 'Enter' && !e.isComposing && !sendButton.disabled) {
       sendData();
     }
   });
@@ -104,7 +107,6 @@ document.addEventListener('DOMContentLoaded', () => {
   async function readLoop() {
     if (!port || !port.readable) return;
     reader = port.readable.getReader();
-    const decoder = new TextDecoder();
 
     try {
       while (true) {
@@ -113,7 +115,7 @@ document.addEventListener('DOMContentLoaded', () => {
             reader.releaseLock();
             break;
         }
-        appendLog(decoder.decode(value, { stream: true }), 'received');
+        appendLog(value, 'received');
       }
     } catch (error) {
         if (!isManualDisconnect) {
@@ -208,21 +210,33 @@ document.addEventListener('DOMContentLoaded', () => {
     paritySelect.disabled = disabled;
   }
 
-  function appendLog(text, type = 'received') {
+  function appendLog(data, type = 'received') {
     const span = document.createElement('span');
     span.className = type;
 
-    const timestamp = new Date().toLocaleTimeString();
+    const timestamp = showTimestampCheckbox.checked ? `[${new Date().toLocaleTimeString()}] ` : '';
     const prefix = type === 'sent' ? '>> ' : '<< ';
     
-    let processedText = text;
+    let processedText;
+
     if (type === 'received') {
-        const newlineSetting = receiveNewlineSelect.value;
-        if (newlineSetting === 'cr') processedText = text.replace(/\r/g, '\n');
-        else if (newlineSetting === 'crlf') processedText = text.replace(/\r\n/g, '\n');
+        // data is Uint8Array
+        if (formatAscii.checked) {
+            const decoder = new TextDecoder();
+            let text = decoder.decode(data, { stream: true });
+            const newlineSetting = receiveNewlineSelect.value;
+            if (newlineSetting === 'cr') text = text.replace(/\r/g, '\n');
+            else if (newlineSetting === 'crlf') text = text.replace(/\r\n/g, '\n');
+            processedText = text;
+        } else { // HEX format
+            processedText = Array.from(data).map(byte => byte.toString(16).padStart(2, '0').toUpperCase()).join(' ');
+        }
+    } else {
+        // data is a string (for 'sent' or 'error' types)
+        processedText = data;
     }
 
-    span.textContent = `[${timestamp}] ${prefix}${processedText}`;
+    span.textContent = `${timestamp}${prefix}${processedText}`;
     
     log.appendChild(span);
     log.appendChild(document.createElement('br'));

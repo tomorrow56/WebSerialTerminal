@@ -57,10 +57,28 @@ body {
   align-items: center;
 }
 
+.newline-settings, .display-format-settings {
+  gap: 20px; /* Adjust gap between settings */
+}
+
 .setting-item {
   display: flex;
   flex-direction: column;
   gap: 5px;
+}
+
+.setting-item .radio-group {
+  display: flex;
+  align-items: center;
+  gap: 5px; /* Gap between radio button and its label */
+}
+
+.setting-item .radio-group label {
+  margin-right: 10px; /* Gap between HEX label and next item */
+}
+
+.setting-item input[type="radio"] {
+  margin: 0;
 }
 
 .setting-item label {
