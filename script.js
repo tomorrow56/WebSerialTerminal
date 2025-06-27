@@ -1,224 +1,244 @@
 document.addEventListener('DOMContentLoaded', () => {
-    const connectButton = document.getElementById('connectButton');
-    const disconnectButton = document.getElementById('disconnectButton');
-    const saveLogButton = document.getElementById('saveLogButton');
-    const clearLogButton = document.getElementById('clearLogButton');
-    const statusDisplay = document.getElementById('status');
-    const terminalContainer = document.getElementById('terminal');
-    const sendButton = document.getElementById('sendButton');
-    const inputField = document.getElementById('inputField');
-    const baudRateSelector = document.getElementById('baudRate');
+  // --- UI Elements ---
+  const connectButton = document.getElementById('connectButton');
+  const disconnectButton = document.getElementById('disconnectButton');
+  const clearLogButton = document.getElementById('clearLogButton');
+  const saveLogButton = document.getElementById('saveLogButton');
+  const status = document.getElementById('status');
+  const log = document.getElementById('log');
+  const sendInput = document.getElementById('sendInput');
+  const sendButton = document.getElementById('sendButton');
 
-    let port;
-    let reader;
-    let keepReading = false;
-    let reconnectionIntervalId = null;
+  // --- Setting Elements ---
+  const baudRateSelect = document.getElementById('baudRate');
+  const dataBitsSelect = document.getElementById('dataBits');
+  const stopBitsSelect = document.getElementById('stopBits');
+  const paritySelect = document.getElementById('parity');
+  const sendNewlineSelect = document.getElementById('sendNewline');
+  const receiveNewlineSelect = document.getElementById('receiveNewline');
+  const autoReconnectCheckbox = document.getElementById('autoReconnectCheckbox');
 
-    const textEncoder = new TextEncoder();
-    const textDecoder = new TextDecoder();
+  // --- State Variables ---
+  let port;
+  let reader;
+  let writer;
+  let portInfo; // To store vendorId/productId for reconnect
+  let reconnectInterval;
+  let isManualDisconnect = false;
 
-    // 接続ボタンのクリックイベント
-    connectButton.addEventListener('click', async () => {
-        if ('serial' in navigator) {
-            try {
-                port = await navigator.serial.requestPort();
-                const selectedBaudRate = parseInt(baudRateSelector.value, 10);
-                await port.open({ baudRate: selectedBaudRate });
-
-                // 接続に成功したら、再接続ループを停止
-                if (reconnectionIntervalId) {
-                    clearInterval(reconnectionIntervalId);
-                    reconnectionIntervalId = null;
-                }
-
-                keepReading = true;
-                updateUIForConnection();
-                readLoop();
-            } catch (err) {
-                statusDisplay.textContent = `エラー: ${err.message}`;
-            }
-        } else {
-            alert('お使いのブラウザは Web Serial API をサポートしていません。');
-        }
-    });
-
-    // 切断ボタンのクリックイベント
-    disconnectButton.addEventListener('click', async () => {
-        // 再接続中であれば、ループを停止する
-        if (reconnectionIntervalId) {
-            clearInterval(reconnectionIntervalId);
-            reconnectionIntervalId = null;
-        }
-        await handleDisconnection();
-    });
-
-    // ログ保存ボタンのクリックイベント
-    saveLogButton.addEventListener('click', () => {
-        const logText = terminalContainer.textContent;
-        const blob = new Blob([logText], { type: 'text/plain' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = 'serial-log.txt';
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-    });
-
-    // ログクリアボタンのクリックイベント
-    clearLogButton.addEventListener('click', () => {
-        terminalContainer.textContent = '';
-    });
-
-    // 送信ボタンのクリックイベント
-    sendButton.addEventListener('click', async () => {
-        const text = inputField.value;
-        if (!port || !text) {
-            return;
-        }
-
-        let localWriter;
-        try {
-            localWriter = port.writable.getWriter();
-            await localWriter.write(textEncoder.encode(text + '\n'));
-            inputField.value = '';
-        } catch (err) {
-            console.error('送信エラー:', err);
-            statusDisplay.textContent = `エラー: ${err.message}`;
-        } finally {
-            if (localWriter) {
-                localWriter.releaseLock();
-            }
-        }
-    });
-
-    // Enterキーで送信
-    inputField.addEventListener('keydown', (event) => {
-        if (event.key === 'Enter') {
-            sendButton.click();
-        }
-    });
-
-    // データ読み取りループ
-    async function readLoop() {
-        while (port && port.readable && keepReading) {
-            reader = port.readable.getReader();
-            try {
-                while (true) {
-                    const { value, done } = await reader.read();
-                    if (done) {
-                        reader.releaseLock();
-                        break;
-                    }
-                    const text = textDecoder.decode(value, { stream: true });
-                    appendToTerminal(text);
-                }
-            } catch (err) {
-                console.error('読み取りエラー:', err);
-                if (err.message.includes('The device has been lost.')) {
-                    appendToTerminal(`\n--- エラー: デバイスが切断されました。再接続を試みます... ---\n`);
-                    await startReconnectionProcess();
-                } else {
-                    appendToTerminal(`\n--- エラー: ${err.message} ---\n`);
-                    await handleDisconnection();
-                }
-            }
-        }
+  // --- Event Listeners ---
+  connectButton.addEventListener('click', connectPort);
+  disconnectButton.addEventListener('click', () => {
+    isManualDisconnect = true;
+    disconnectPort();
+  });
+  sendButton.addEventListener('click', sendData);
+  clearLogButton.addEventListener('click', () => { log.innerHTML = ''; });
+  saveLogButton.addEventListener('click', saveLog);
+  sendInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !sendButton.disabled) {
+      sendData();
     }
+  });
 
-    // 切断処理
-    async function handleDisconnection() {
-        keepReading = false;
-        if (reader) {
-            try { await reader.cancel(); } catch (e) { /* ignore */ } 
-        }
-        if (port) {
-            try { await port.close(); } catch (e) { /* ignore */ } 
-        }
-        port = null;
+  navigator.serial.addEventListener('disconnect', (e) => {
+    if (port && e.target === port) {
+        console.log('Device disconnected unexpectedly.');
+        isManualDisconnect = false;
+        disconnectPort();
+    }
+  });
+
+  // --- Core Functions ---
+  async function connectPort() {
+    try {
+      port = await navigator.serial.requestPort();
+      portInfo = port.getInfo();
+      const options = {
+        baudRate: parseInt(baudRateSelect.value),
+        dataBits: parseInt(dataBitsSelect.value),
+        stopBits: parseInt(stopBitsSelect.value),
+        parity: paritySelect.value,
+      };
+      await port.open(options);
+      isManualDisconnect = false;
+      updateUiForConnection();
+      readLoop();
+    } catch (error) {
+      console.error('Connection error:', error);
+      status.textContent = `エラー: ${error.message}`;
+    }
+  }
+
+  async function disconnectPort() {
+    if (reconnectInterval) {
+        clearInterval(reconnectInterval);
+        reconnectInterval = null;
+    }
+    if (!port) return;
+
+    const wasConnected = !!port;
+
+    try {
+      if (reader) {
+        await reader.cancel();
         reader = null;
-        updateUIForDisconnection();
+      }
+      if (writer) {
+        writer = null;
+      }
+      await port.close();
+    } catch (error) {
+      console.error('Disconnection error:', error);
     }
+    
+    port = null;
+    updateUiForDisconnection();
 
-    // 再接続プロセスの開始
-    async function startReconnectionProcess() {
-        keepReading = false;
-        if (reader) {
-            try { await reader.cancel(); } catch (e) { /* ignore */ } 
-        }
-        if (port) {
-            try { await port.close(); } catch (e) { /* ignore */ } 
-        }
-        port = null;
-        reader = null;
-
-        updateUIForReconnecting();
-        reconnectionIntervalId = setInterval(tryReconnect, 2000);
+    if (wasConnected && autoReconnectCheckbox.checked && !isManualDisconnect) {
+        status.textContent = 'ステータス: 再接続待機中...';
+        reconnectInterval = setInterval(tryReconnect, 2000);
     }
+  }
 
-    // 再接続の試行
-    async function tryReconnect() {
-        try {
-            const availablePorts = await navigator.serial.getPorts();
-            if (availablePorts.length === 0) {
-                return; // 許可されたポートがない場合は待機
-            }
+  async function readLoop() {
+    if (!port || !port.readable) return;
+    reader = port.readable.getReader();
+    const decoder = new TextDecoder();
 
-            port = availablePorts[0]; // 以前許可されたポートを再利用
-            const selectedBaudRate = parseInt(baudRateSelector.value, 10);
-            await port.open({ baudRate: selectedBaudRate });
+    try {
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) {
+            reader.releaseLock();
+            break;
+        }
+        appendLog(decoder.decode(value, { stream: true }), 'received');
+      }
+    } catch (error) {
+        if (!isManualDisconnect) {
+            console.error('Read error:', error);
+            appendLog(`[ERROR] Read error: ${error.message}`, 'error');
+        }
+    }
+  }
 
-            // 再接続成功
-            clearInterval(reconnectionIntervalId);
-            reconnectionIntervalId = null;
+  async function sendData() {
+    if (!port || !port.writable) return;
+    let textToSend = sendInput.value;
+    if (!textToSend) return;
 
-            appendToTerminal(`\n--- 再接続に成功しました ---\n`);
-            keepReading = true;
-            updateUIForConnection();
+    const newline = sendNewlineSelect.value;
+    let textWithNewline = textToSend;
+    if (newline === 'lf') textWithNewline += '\n';
+    else if (newline === 'cr') textWithNewline += '\r';
+    else if (newline === 'crlf') textWithNewline += '\r\n';
+
+    try {
+      writer = port.writable.getWriter();
+      await writer.write(new TextEncoder().encode(textWithNewline));
+      writer.releaseLock();
+      appendLog(textToSend, 'sent');
+      sendInput.value = '';
+    } catch (error) {
+      console.error('Write error:', error);
+      appendLog(`[ERROR] Write error: ${error.message}`, 'error');
+      if (writer) writer.releaseLock();
+    }
+  }
+
+  async function tryReconnect() {
+    if (!portInfo) return;
+
+    try {
+        const availablePorts = await navigator.serial.getPorts();
+        const targetPort = availablePorts.find(p => {
+            const info = p.getInfo();
+            return info.usbVendorId === portInfo.usbVendorId && info.usbProductId === portInfo.usbProductId;
+        });
+
+        if (targetPort) {
+            console.log('Device found, attempting to reconnect...');
+            clearInterval(reconnectInterval);
+            reconnectInterval = null;
+            port = targetPort;
+            const options = {
+                baudRate: parseInt(baudRateSelect.value),
+                dataBits: parseInt(dataBitsSelect.value),
+                stopBits: parseInt(stopBitsSelect.value),
+                parity: paritySelect.value,
+            };
+            await port.open(options);
+            isManualDisconnect = false;
+            updateUiForConnection();
             readLoop();
-        } catch (err) {
-            port = null; // openに失敗した場合、次の試行のためにリセット
-            console.log('再接続に失敗しました。再試行します...', err);
         }
+    } catch (error) {
+        console.error('Reconnect attempt failed:', error);
+    }
+  }
+
+  // --- UI & Log Functions ---
+  function updateUiForConnection() {
+    status.textContent = 'ステータス: 接続中';
+    connectButton.disabled = true;
+    disconnectButton.disabled = false;
+    sendButton.disabled = false;
+    sendInput.disabled = false;
+    setSettingsState(true);
+    if (reconnectInterval) {
+        clearInterval(reconnectInterval);
+        reconnectInterval = null;
+    }
+  }
+
+  function updateUiForDisconnection() {
+    status.textContent = 'ステータス: 切断';
+    connectButton.disabled = false;
+    disconnectButton.disabled = true;
+    sendButton.disabled = true;
+    sendInput.disabled = true;
+    setSettingsState(false);
+  }
+
+  function setSettingsState(disabled) {
+    baudRateSelect.disabled = disabled;
+    dataBitsSelect.disabled = disabled;
+    stopBitsSelect.disabled = disabled;
+    paritySelect.disabled = disabled;
+  }
+
+  function appendLog(text, type = 'received') {
+    const span = document.createElement('span');
+    span.className = type;
+
+    const timestamp = new Date().toLocaleTimeString();
+    const prefix = type === 'sent' ? '>> ' : '<< ';
+    
+    let processedText = text;
+    if (type === 'received') {
+        const newlineSetting = receiveNewlineSelect.value;
+        if (newlineSetting === 'cr') processedText = text.replace(/\r/g, '\n');
+        else if (newlineSetting === 'crlf') processedText = text.replace(/\r\n/g, '\n');
     }
 
-    // ターミナルにテキストを追加
-    function appendToTerminal(text) {
-        terminalContainer.textContent += text;
-        terminalContainer.scrollTop = terminalContainer.scrollHeight;
-    }
+    span.textContent = `[${timestamp}] ${prefix}${processedText}`;
+    
+    log.appendChild(span);
+    log.appendChild(document.createElement('br'));
+    log.scrollTop = log.scrollHeight;
+  }
 
-    // UIの状態を更新（接続時）
-    function updateUIForConnection() {
-        statusDisplay.textContent = 'ステータス: 接続中';
-        connectButton.disabled = true;
-        disconnectButton.disabled = false;
-        sendButton.disabled = false;
-        inputField.disabled = false;
-        baudRateSelector.disabled = true;
-    }
-
-    // UIの状態を更新（切断時）
-    function updateUIForDisconnection() {
-        statusDisplay.textContent = 'ステータス: 切断';
-        connectButton.disabled = false;
-        disconnectButton.disabled = true;
-        sendButton.disabled = true;
-        inputField.disabled = true;
-        baudRateSelector.disabled = false;
-        if (!terminalContainer.textContent.endsWith('接続が切れました ---\n')) {
-            appendToTerminal('\n--- 接続が切れました ---\n');
-        }
-    }
-
-    // UIの状態を更新（再接続中）
-    function updateUIForReconnecting() {
-        statusDisplay.textContent = 'ステータス: 再接続中...';
-        connectButton.disabled = true;
-        disconnectButton.disabled = false;
-        sendButton.disabled = true;
-        inputField.disabled = true;
-        baudRateSelector.disabled = true;
-    }
+  function saveLog() {
+    const blob = new Blob([log.innerText], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    const timestamp = new Date().toISOString().replace(/[:.-]/g, '').slice(0, 14);
+    a.download = `serial_log_${timestamp}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
 });

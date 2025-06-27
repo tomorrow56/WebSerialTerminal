@@ -1,137 +1,143 @@
+/* General Body and Layout */
 body {
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-    background-color: #f4f7f9;
-    color: #333;
-    margin: 0;
-    padding: 1em;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    min-height: 100vh;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  background-color: #121212;
+  color: #e0e0e0;
+  margin: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
 }
 
 .container {
-    width: 100%;
-    max-width: 800px;
-    background-color: #fff;
-    border-radius: 8px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-    padding: 2em;
-    box-sizing: border-box;
+  width: 90%;
+  max-width: 800px;
+  height: 90vh;
+  display: flex;
+  flex-direction: column;
+  background-color: #1e1e1e;
+  border-radius: 8px;
+  padding: 20px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
 }
 
-h1 {
-    text-align: center;
-    color: #1a73e8;
-    margin-top: 0;
+/* Header */
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+  padding-bottom: 15px;
+  border-bottom: 1px solid #333;
 }
 
-.controls {
-    display: flex;
-    align-items: center;
-    gap: 1em;
-    margin-bottom: 1.5em;
+.header h1 {
+  margin: 0;
+  font-size: 1.5em;
 }
-
-button {
-    padding: 0.75em 1.5em;
-    font-size: 1em;
-    border: none;
-    border-radius: 5px;
-    cursor: pointer;
-    color: #fff;
-    background-color: #1a73e8;
-    transition: background-color 0.3s;
-}
-
-button:hover {
-    background-color: #155ab6;
-}
-
-button:disabled {
-    background-color: #a0c3ff;
-    cursor: not-allowed;
-}
-
-#saveLogButton {
-    background-color: #28a745;
-}
-
-#saveLogButton:hover {
-    background-color: #218838;
-}
-
-#clearLogButton {
-    background-color: #dc3545;
-}
-
-#clearLogButton:hover {
-    background-color: #c82333;
-}
-
-#disconnectButton {
-    background-color: #d93025;
-}
-
-#disconnectButton:hover {
-    background-color: #b0261d;
-}
-
-#disconnectButton:disabled {
-    background-color: #f7b2ad;
-}
-
 
 #status {
-    font-weight: 500;
-    margin-left: auto;
+  font-style: italic;
+  color: #888;
 }
 
-.select-wrapper {
-    display: flex;
-    align-items: center;
-    gap: 0.5em;
+/* Controls Area */
+.controls-area {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  margin-bottom: 15px;
 }
 
-#baudRate {
-    padding: 0.5em;
-    border-radius: 5px;
-    border: 1px solid #ccc;
-    font-size: 1em;
-    background-color: #fff;
+.control-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 15px;
+  align-items: center;
 }
 
-#terminal {
-    background-color: #202124;
-    color: #e8eaed;
-    border: 1px solid #ddd;
-    border-radius: 5px;
-    height: 400px;
-    overflow-y: scroll;
-    padding: 1em;
-    white-space: pre-wrap;
-    word-wrap: break-word;
+.setting-item {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.setting-item label {
+  font-size: 0.85em;
+  color: #aaa;
+}
+
+/* Log Container */
+.log-container {
+  flex-grow: 1;
+  background-color: #101010;
+  border: 1px solid #333;
+  border-radius: 4px;
+  padding: 10px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+#log {
+    margin: 0;
     font-family: "Menlo", "Consolas", "Monaco", monospace;
 }
 
-.input-area {
-    display: flex;
-    gap: 1em;
-    margin-top: 1.5em;
+/* Send Container */
+.send-container {
+  display: flex;
+  gap: 10px;
+  margin-top: 15px;
 }
 
-#inputField {
-    flex-grow: 1;
-    padding: 0.75em;
-    border: 1px solid #ccc;
-    border-radius: 5px;
-    font-size: 1em;
+#sendInput {
+  flex-grow: 1;
 }
 
-#sendButton {
-    background-color: #1e8e3e;
+/* General Element Styling */
+button, select, input[type="text"] {
+  padding: 8px 12px;
+  border-radius: 4px;
+  border: 1px solid #555;
+  background-color: #333;
+  color: #eee;
+  font-size: 0.95em;
 }
 
-#sendButton:hover {
-    background-color: #187032;
+button {
+  cursor: pointer;
+  background-color: #007bff;
+  border-color: #007bff;
+  transition: background-color 0.2s;
+}
+
+button:hover:not(:disabled) {
+  background-color: #0056b3;
+}
+
+button:disabled {
+  background-color: #444;
+  border-color: #555;
+  color: #888;
+  cursor: not-allowed;
+}
+
+input[type="text"]:disabled {
+  background-color: #2a2a2a;
+}
+
+/* Log Message Colors */
+#log .sent {
+  color: #81c784; /* Light green */
+}
+
+#log .received {
+  color: #64b5f6; /* Light blue */
+}
+
+#log .error {
+  color: #e57373; /* Light red */
+  font-weight: bold;
 }
