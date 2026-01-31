@@ -82,6 +82,8 @@ document.addEventListener('DOMContentLoaded', () => {
   let portInfo; // To store vendorId/productId for reconnect
   let reconnectInterval;
   let isManualDisconnect = false;
+  let currentLine = ''; // 現在の行を保持する変数
+  let currentLineTimestamp = ''; // 現在の行のタイムスタンプ
 
   // --- Event Listeners ---
   connectButton.addEventListener('click', connectPort);
@@ -90,7 +92,11 @@ document.addEventListener('DOMContentLoaded', () => {
     disconnectPort();
   });
   sendButton.addEventListener('click', sendData);
-  clearLogButton.addEventListener('click', () => { log.innerHTML = ''; });
+  clearLogButton.addEventListener('click', () => { 
+    log.innerHTML = ''; 
+    currentLine = '';
+    currentLineTimestamp = '';
+  });
   saveLogButton.addEventListener('click', saveLog);
   sendInput.addEventListener('keydown', (e) => {
     // e.isComposingがtrueの場合はIME変換中なので、送信しない
@@ -157,6 +163,19 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     port = null;
+    
+    // 未完了の行バッファをクリア
+    if (currentLine.trim() !== '') {
+        const span = document.createElement('span');
+        span.className = 'received';
+        span.textContent = `${currentLineTimestamp}${currentLine}`;
+        log.appendChild(span);
+        log.appendChild(document.createElement('br'));
+        log.scrollTop = log.scrollHeight;
+    }
+    currentLine = '';
+    currentLineTimestamp = '';
+    
     updateUiForDisconnection();
 
     if (wasConnected && autoReconnectCheckbox.checked && !isManualDisconnect) {
@@ -304,16 +323,22 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function appendLog(data, type = 'received') {
-    const span = document.createElement('span');
-    span.className = type;
+    if (type === 'sent' || type === 'error') {
+        // 送信データやエラーは即時表示
+        const span = document.createElement('span');
+        span.className = type;
+        const timestamp = showTimestampCheckbox.checked ? `[${new Date().toLocaleTimeString()}] ` : '';
+        span.textContent = `${timestamp}${data}`;
+        log.appendChild(span);
+        log.appendChild(document.createElement('br'));
+        log.scrollTop = log.scrollHeight;
+        return;
+    }
 
-    const timestamp = showTimestampCheckbox.checked ? `[${new Date().toLocaleTimeString()}] ` : '';
-    const prefix = type === 'sent' ? '>> ' : '<< ';
-    
-    let processedText;
-
+    // 受信データの処理
     if (type === 'received') {
-        // data is Uint8Array
+        let processedText;
+        
         if (formatAscii.checked) {
             const decoder = new TextDecoder();
             let text = decoder.decode(data, { stream: true });
@@ -324,17 +349,63 @@ document.addEventListener('DOMContentLoaded', () => {
         } else { // HEX format
             processedText = Array.from(data).map(byte => byte.toString(16).padStart(2, '0').toUpperCase()).join(' ');
         }
-    } else {
-        // data is a string (for 'sent' or 'error' types)
-        processedText = data;
-    }
 
-    span.textContent = `${timestamp}${prefix}${processedText}`;
-    
-    log.appendChild(span);
-    log.appendChild(document.createElement('br'));
-    log.scrollTop = log.scrollHeight;
-  }
+        // ASCIIモードで改行コードを含む場合のみ行を完了
+        if (formatAscii.checked && processedText.includes('\n')) {
+            const lines = processedText.split('\n');
+            
+            // 最初の部分を現在の行に追加
+            currentLine += lines[0];
+            
+            // タイムスタンプがまだ設定されていれば設定
+            if (!currentLineTimestamp && showTimestampCheckbox.checked) {
+                currentLineTimestamp = `[${new Date().toLocaleTimeString()}] `;
+            }
+            
+            // 完了した行を表示
+            if (currentLine.trim() !== '') {
+                const span = document.createElement('span');
+                span.className = 'received';
+                span.textContent = `${currentLineTimestamp}${currentLine}`;
+                log.appendChild(span);
+                log.appendChild(document.createElement('br'));
+            }
+            
+            // 中間の空行を処理
+            for (let i = 1; i < lines.length - 1; i++) {
+                if (lines[i].trim() !== '') {
+                    const span = document.createElement('span');
+                    span.className = 'received';
+                    const timestamp = showTimestampCheckbox.checked ? `[${new Date().toLocaleTimeString()}] ` : '';
+                    span.textContent = `${timestamp}${lines[i]}`;
+                    log.appendChild(span);
+                    log.appendChild(document.createElement('br'));
+                }
+            }
+            
+            // 最後の部分を新しい現在の行として設定
+            currentLine = lines[lines.length - 1];
+            currentLineTimestamp = '';
+            
+            if (currentLine.trim() !== '') {
+                // 新しい行のタイムスタンプを設定
+                if (showTimestampCheckbox.checked) {
+                    currentLineTimestamp = `[${new Date().toLocaleTimeString()}] `;
+                }
+            }
+            
+            log.scrollTop = log.scrollHeight;
+        } else {
+            // 改行コードがない場合は現在の行に追加
+            currentLine += processedText;
+            
+            // 最初のデータでタイムスタンプを設定
+            if (!currentLineTimestamp && showTimestampCheckbox.checked && currentLine.trim() !== '') {
+                currentLineTimestamp = `[${new Date().toLocaleTimeString()}] `;
+            }
+        }
+    }
+}
 
   function saveLog() {
     const blob = new Blob([log.innerText], { type: 'text/plain' });
