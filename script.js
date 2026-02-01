@@ -19,6 +19,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const autoReconnectCheckbox = document.getElementById('autoReconnectCheckbox');
   const formatAscii = document.getElementById('formatAscii');
   const showTimestampCheckbox = document.getElementById('showTimestampCheckbox');
+  const autoScrollCheckbox = document.getElementById('autoScrollCheckbox');
   const langJa = document.getElementById('lang-ja');
   const langEn = document.getElementById('lang-en');
 
@@ -37,6 +38,7 @@ document.addEventListener('DOMContentLoaded', () => {
       parityLabel: "パリティ",
       autoReconnectLabel: "自動で再接続",
       showTimestampLabel: "タイムスタンプ表示",
+      autoScrollLabel: "自動スクロール",
       sendLabel: "送信",
       receiveLabel: "受信",
       displayFormatLabel: "表示形式",
@@ -62,6 +64,7 @@ document.addEventListener('DOMContentLoaded', () => {
       parityLabel: "Parity",
       autoReconnectLabel: "Auto Reconnect",
       showTimestampLabel: "Show Timestamp",
+      autoScrollLabel: "Auto Scroll",
       sendLabel: "Send",
       receiveLabel: "Receive",
       displayFormatLabel: "Display Format",
@@ -171,7 +174,17 @@ document.addEventListener('DOMContentLoaded', () => {
         span.textContent = `${currentLineTimestamp}${currentLine}`;
         log.appendChild(span);
         log.appendChild(document.createElement('br'));
-        log.scrollTop = log.scrollHeight;
+        if (autoScrollCheckbox.checked) {
+            console.log('Auto-scroll enabled for disconnect, scrolling to bottom');
+            setTimeout(() => {
+                const brElement = log.lastElementChild;
+                if (brElement) {
+                    brElement.scrollIntoView({ behavior: 'smooth', block: 'end' });
+                }
+            }, 0);
+        } else {
+            console.log('Auto-scroll disabled for disconnect');
+        }
     }
     currentLine = '';
     currentLineTimestamp = '';
@@ -331,7 +344,17 @@ document.addEventListener('DOMContentLoaded', () => {
         span.textContent = `${timestamp}${data}`;
         log.appendChild(span);
         log.appendChild(document.createElement('br'));
-        log.scrollTop = log.scrollHeight;
+        if (autoScrollCheckbox.checked) {
+            console.log('Auto-scroll enabled for sent/error, scrolling to bottom');
+            setTimeout(() => {
+                const brElement = log.lastElementChild;
+                if (brElement) {
+                    brElement.scrollIntoView({ behavior: 'smooth', block: 'end' });
+                }
+            }, 0);
+        } else {
+            console.log('Auto-scroll disabled for sent/error');
+        }
         return;
     }
 
@@ -348,6 +371,25 @@ document.addEventListener('DOMContentLoaded', () => {
             processedText = text;
         } else { // HEX format
             processedText = Array.from(data).map(byte => byte.toString(16).padStart(2, '0').toUpperCase()).join(' ');
+            // HEXモードでは送信の区切りで改行
+            const span = document.createElement('span');
+            span.className = 'received';
+            const timestamp = showTimestampCheckbox.checked ? `[${new Date().toLocaleTimeString()}] ` : '';
+            span.textContent = `${timestamp}${processedText}`;
+            log.appendChild(span);
+            log.appendChild(document.createElement('br'));
+            if (autoScrollCheckbox.checked) {
+                console.log('Auto-scroll enabled for HEX, scrolling to bottom');
+                setTimeout(() => {
+                    const brElement = log.lastElementChild;
+                    if (brElement) {
+                        brElement.scrollIntoView({ behavior: 'smooth', block: 'end' });
+                    }
+                }, 0);
+            } else {
+                console.log('Auto-scroll disabled for HEX');
+            }
+            return;
         }
 
         // ASCIIモードで改行コードを含む場合のみ行を完了
@@ -394,7 +436,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
             
-            log.scrollTop = log.scrollHeight;
+            if (autoScrollCheckbox.checked) {
+                console.log('Auto-scroll enabled for ASCII newline, scrolling to bottom');
+                setTimeout(() => {
+                    const brElement = log.lastElementChild;
+                    if (brElement) {
+                        brElement.scrollIntoView({ behavior: 'smooth', block: 'end' });
+                    }
+                }, 0);
+            } else {
+                console.log('Auto-scroll disabled for ASCII newline');
+            }
         } else {
             // 改行コードがない場合は現在の行に追加
             currentLine += processedText;
