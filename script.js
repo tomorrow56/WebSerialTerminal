@@ -156,6 +156,26 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     port = null;
+    
+    // 未完了の行バッファをクリア
+    if (currentLine.trim() !== '') {
+        const span = document.createElement('span');
+        span.className = 'received';
+        span.textContent = `${currentLineTimestamp}${currentLine}`;
+        log.appendChild(span);
+        log.appendChild(document.createElement('br'));
+        if (autoScrollCheckbox.checked) {
+            setTimeout(() => {
+                const brElement = log.lastElementChild;
+                if (brElement) {
+                    brElement.scrollIntoView({ behavior: 'smooth', block: 'end' });
+                }
+            }, 0);
+        }
+    }
+    currentLine = '';
+    currentLineTimestamp = '';
+    
     updateUiForDisconnection();
   }
 
