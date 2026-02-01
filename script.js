@@ -16,7 +16,6 @@ document.addEventListener('DOMContentLoaded', () => {
   const paritySelect = document.getElementById('parity');
   const sendNewlineSelect = document.getElementById('sendNewline');
   const receiveNewlineSelect = document.getElementById('receiveNewline');
-  const autoReconnectCheckbox = document.getElementById('autoReconnectCheckbox');
   const formatAscii = document.getElementById('formatAscii');
   const showTimestampCheckbox = document.getElementById('showTimestampCheckbox');
   const autoScrollCheckbox = document.getElementById('autoScrollCheckbox');
@@ -36,7 +35,6 @@ document.addEventListener('DOMContentLoaded', () => {
       dataBitsLabel: "データビット",
       stopBitsLabel: "ストップビット",
       parityLabel: "パリティ",
-      autoReconnectLabel: "自動で再接続",
       showTimestampLabel: "タイムスタンプ表示",
       autoScrollLabel: "自動スクロール",
       sendLabel: "送信",
@@ -62,7 +60,6 @@ document.addEventListener('DOMContentLoaded', () => {
       dataBitsLabel: "Data Bits",
       stopBitsLabel: "Stop Bits",
       parityLabel: "Parity",
-      autoReconnectLabel: "Auto Reconnect",
       showTimestampLabel: "Show Timestamp",
       autoScrollLabel: "Auto Scroll",
       sendLabel: "Send",
@@ -83,7 +80,6 @@ document.addEventListener('DOMContentLoaded', () => {
   let reader;
   let writer;
   let portInfo; // To store vendorId/productId for reconnect
-  let reconnectInterval;
   let isManualDisconnect = false;
   let currentLine = ''; // 現在の行を保持する変数
   let currentLineTimestamp = ''; // 現在の行のタイムスタンプ
@@ -144,13 +140,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   async function disconnectPort() {
-    if (reconnectInterval) {
-        clearInterval(reconnectInterval);
-        reconnectInterval = null;
-    }
     if (!port) return;
-
-    const wasConnected = !!port;
 
     try {
       if (reader) {
@@ -166,35 +156,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     port = null;
-    
-    // 未完了の行バッファをクリア
-    if (currentLine.trim() !== '') {
-        const span = document.createElement('span');
-        span.className = 'received';
-        span.textContent = `${currentLineTimestamp}${currentLine}`;
-        log.appendChild(span);
-        log.appendChild(document.createElement('br'));
-        if (autoScrollCheckbox.checked) {
-            console.log('Auto-scroll enabled for disconnect, scrolling to bottom');
-            setTimeout(() => {
-                const brElement = log.lastElementChild;
-                if (brElement) {
-                    brElement.scrollIntoView({ behavior: 'smooth', block: 'end' });
-                }
-            }, 0);
-        } else {
-            console.log('Auto-scroll disabled for disconnect');
-        }
-    }
-    currentLine = '';
-    currentLineTimestamp = '';
-    
     updateUiForDisconnection();
-
-    if (wasConnected && autoReconnectCheckbox.checked && !isManualDisconnect) {
-        status.textContent = `${translations[currentLang].statusLabel}: 再接続待機中...`;
-        reconnectInterval = setInterval(tryReconnect, 2000);
-    }
   }
 
   async function readLoop() {
@@ -239,37 +201,6 @@ document.addEventListener('DOMContentLoaded', () => {
       console.error('Write error:', error);
       appendLog(`[ERROR] Write error: ${error.message}`, 'error');
       if (writer) writer.releaseLock();
-    }
-  }
-
-  async function tryReconnect() {
-    if (!portInfo) return;
-
-    try {
-        const availablePorts = await navigator.serial.getPorts();
-        const targetPort = availablePorts.find(p => {
-            const info = p.getInfo();
-            return info.usbVendorId === portInfo.usbVendorId && info.usbProductId === portInfo.usbProductId;
-        });
-
-        if (targetPort) {
-            console.log('Device found, attempting to reconnect...');
-            clearInterval(reconnectInterval);
-            reconnectInterval = null;
-            port = targetPort;
-            const options = {
-                baudRate: parseInt(baudRateSelect.value),
-                dataBits: parseInt(dataBitsSelect.value),
-                stopBits: parseInt(stopBitsSelect.value),
-                parity: paritySelect.value,
-            };
-            await port.open(options);
-            isManualDisconnect = false;
-            updateUiForConnection();
-            readLoop();
-        }
-    } catch (error) {
-        console.error('Reconnect attempt failed:', error);
     }
   }
 
@@ -345,15 +276,12 @@ document.addEventListener('DOMContentLoaded', () => {
         log.appendChild(span);
         log.appendChild(document.createElement('br'));
         if (autoScrollCheckbox.checked) {
-            console.log('Auto-scroll enabled for sent/error, scrolling to bottom');
             setTimeout(() => {
                 const brElement = log.lastElementChild;
                 if (brElement) {
                     brElement.scrollIntoView({ behavior: 'smooth', block: 'end' });
                 }
             }, 0);
-        } else {
-            console.log('Auto-scroll disabled for sent/error');
         }
         return;
     }
@@ -379,15 +307,12 @@ document.addEventListener('DOMContentLoaded', () => {
             log.appendChild(span);
             log.appendChild(document.createElement('br'));
             if (autoScrollCheckbox.checked) {
-                console.log('Auto-scroll enabled for HEX, scrolling to bottom');
                 setTimeout(() => {
                     const brElement = log.lastElementChild;
                     if (brElement) {
                         brElement.scrollIntoView({ behavior: 'smooth', block: 'end' });
                     }
                 }, 0);
-            } else {
-                console.log('Auto-scroll disabled for HEX');
             }
             return;
         }
@@ -437,15 +362,12 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             
             if (autoScrollCheckbox.checked) {
-                console.log('Auto-scroll enabled for ASCII newline, scrolling to bottom');
                 setTimeout(() => {
                     const brElement = log.lastElementChild;
                     if (brElement) {
                         brElement.scrollIntoView({ behavior: 'smooth', block: 'end' });
                     }
                 }, 0);
-            } else {
-                console.log('Auto-scroll disabled for ASCII newline');
             }
         } else {
             // 改行コードがない場合は現在の行に追加
