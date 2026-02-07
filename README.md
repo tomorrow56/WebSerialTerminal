@@ -15,6 +15,7 @@ This is a feature-rich terminal application that allows you to communicate direc
   - Color-coded logs to distinguish between sent (`>>`) and received (`<<`) data.
 - **Convenient Utilities:**
   - **Auto-Reconnect:** Automatically attempts to reconnect if the device is unexpectedly disconnected.
+    - **Note:** Auto-reconnect may not work properly with devices using CH340 series USB-to-serial converter chips. If disconnection occurs, please click the "Connect" button again to manually reconnect.
   - **Save Log:** Save the current log to a timestamped text file.
   - **Clear Log:** Clear the log display at any time.
 - **Input Assistance:**
