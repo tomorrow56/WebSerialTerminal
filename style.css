@@ -182,3 +182,8 @@ input[type="text"]:disabled {
   color: #e57373; /* Light red */
   font-weight: bold;
 }
+
+#log .system {
+  color: #ffb74d; /* Light orange */
+  font-style: italic;
+}
