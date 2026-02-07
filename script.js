@@ -19,6 +19,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const formatAscii = document.getElementById('formatAscii');
   const showTimestampCheckbox = document.getElementById('showTimestampCheckbox');
   const autoScrollCheckbox = document.getElementById('autoScrollCheckbox');
+  const autoReconnectCheckbox = document.getElementById('autoReconnectCheckbox');
   const langJa = document.getElementById('lang-ja');
   const langEn = document.getElementById('lang-en');
 
@@ -37,6 +38,10 @@ document.addEventListener('DOMContentLoaded', () => {
       parityLabel: "パリティ",
       showTimestampLabel: "タイムスタンプ表示",
       autoScrollLabel: "自動スクロール",
+      autoReconnectLabel: "自動再接続",
+      statusReconnecting: "再接続中...",
+      reconnected: "再接続しました",
+      reconnecting: "デバイスが切断されました。再接続を試みています...",
       sendLabel: "送信",
       receiveLabel: "受信",
       displayFormatLabel: "表示形式",
@@ -62,6 +67,10 @@ document.addEventListener('DOMContentLoaded', () => {
       parityLabel: "Parity",
       showTimestampLabel: "Show Timestamp",
       autoScrollLabel: "Auto Scroll",
+      autoReconnectLabel: "Auto Reconnect",
+      statusReconnecting: "Reconnecting...",
+      reconnected: "Reconnected",
+      reconnecting: "Device disconnected. Attempting to reconnect...",
       sendLabel: "Send",
       receiveLabel: "Receive",
       displayFormatLabel: "Display Format",
@@ -83,11 +92,14 @@ document.addEventListener('DOMContentLoaded', () => {
   let isManualDisconnect = false;
   let currentLine = ''; // 現在の行を保持する変数
   let currentLineTimestamp = ''; // 現在の行のタイムスタンプ
+  let autoReconnectTimer = null;
+  let lastConnectionOptions = null;
 
   // --- Event Listeners ---
   connectButton.addEventListener('click', connectPort);
   disconnectButton.addEventListener('click', () => {
     isManualDisconnect = true;
+    stopAutoReconnect();
     disconnectPort();
   });
   sendButton.addEventListener('click', sendData);
@@ -112,6 +124,14 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
+  navigator.serial.addEventListener('connect', () => {
+    // デバイスが再接続された場合、次のポーリングを早める
+    if (autoReconnectTimer) {
+        clearTimeout(autoReconnectTimer);
+        autoReconnectTimer = setTimeout(attemptReconnect, 500);
+    }
+  });
+
   document.querySelectorAll('input[name="language"]').forEach(radio => {
     radio.addEventListener('change', (e) => {
       setLanguage(e.target.value);
@@ -120,6 +140,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // --- Core Functions ---
   async function connectPort() {
+    stopAutoReconnect();
     try {
       port = await navigator.serial.requestPort();
       portInfo = port.getInfo();
@@ -176,7 +197,85 @@ document.addEventListener('DOMContentLoaded', () => {
     currentLine = '';
     currentLineTimestamp = '';
     
-    updateUiForDisconnection();
+    // 予期しない切断で自動再接続が有効な場合、再接続を開始
+    if (!isManualDisconnect && autoReconnectCheckbox.checked && portInfo) {
+        startAutoReconnect();
+    } else {
+        updateUiForDisconnection();
+    }
+  }
+
+  function startAutoReconnect() {
+    lastConnectionOptions = {
+        baudRate: parseInt(baudRateSelect.value),
+        dataBits: parseInt(dataBitsSelect.value),
+        stopBits: parseInt(stopBitsSelect.value),
+        parity: paritySelect.value,
+    };
+    appendLog(`--- ${translations[currentLang].reconnecting} ---`, 'system');
+    updateUiForReconnecting();
+    autoReconnectTimer = setTimeout(attemptReconnect, 1500);
+  }
+
+  async function attemptReconnect() {
+    if (isManualDisconnect || !autoReconnectCheckbox.checked) {
+        stopAutoReconnect();
+        return;
+    }
+
+    try {
+        const ports = await navigator.serial.getPorts();
+        let targetPort = null;
+
+        // vendorId/productIdで一致するポートを探す
+        if (portInfo && portInfo.usbVendorId !== undefined) {
+            targetPort = ports.find(p => {
+                const info = p.getInfo();
+                return info.usbVendorId === portInfo.usbVendorId &&
+                       info.usbProductId === portInfo.usbProductId;
+            });
+        }
+
+        // フォールバック: 許可済みポートが1つだけなら使用
+        if (!targetPort && ports.length === 1) {
+            targetPort = ports[0];
+        }
+
+        if (targetPort) {
+            try {
+                port = targetPort;
+                await port.open(lastConnectionOptions);
+                // 再接続成功
+                autoReconnectTimer = null;
+                lastConnectionOptions = null;
+                portInfo = port.getInfo();
+                isManualDisconnect = false;
+                updateUiForConnection();
+                appendLog(`--- ${translations[currentLang].reconnected} ---`, 'system');
+                readLoop();
+                return;
+            } catch (openError) {
+                port = null;
+                // まだ開けない、ポーリング継続
+            }
+        }
+    } catch (error) {
+        console.error('Reconnect attempt error:', error);
+    }
+
+    // 次の試行をスケジュール
+    autoReconnectTimer = setTimeout(attemptReconnect, 1500);
+  }
+
+  function stopAutoReconnect() {
+    if (autoReconnectTimer) {
+        clearTimeout(autoReconnectTimer);
+        autoReconnectTimer = null;
+    }
+    lastConnectionOptions = null;
+    if (!port) {
+        updateUiForDisconnection();
+    }
   }
 
   async function readLoop() {
@@ -249,6 +348,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // Update status text separately as it's dynamic
     if (port && port.readable) {
         updateUiForConnection();
+    } else if (autoReconnectTimer) {
+        updateUiForReconnecting();
     } else {
         updateUiForDisconnection();
     }
@@ -270,6 +371,15 @@ document.addEventListener('DOMContentLoaded', () => {
     setSettingsState(true);
   }
 
+  function updateUiForReconnecting() {
+    status.textContent = `${translations[currentLang].statusLabel}: ${translations[currentLang].statusReconnecting}`;
+    connectButton.disabled = true;
+    disconnectButton.disabled = false;
+    sendButton.disabled = true;
+    sendInput.disabled = true;
+    setSettingsState(true);
+  }
+
   function updateUiForDisconnection() {
     status.textContent = `${translations[currentLang].statusLabel}: ${translations[currentLang].statusDisconnected}`;
     connectButton.disabled = false;
@@ -287,7 +397,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function appendLog(data, type = 'received') {
-    if (type === 'sent' || type === 'error') {
+    if (type === 'sent' || type === 'error' || type === 'system') {
         // 送信データやエラーは即時表示
         const span = document.createElement('span');
         span.className = type;
